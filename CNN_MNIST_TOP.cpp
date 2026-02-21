@@ -7,25 +7,25 @@
 #include "store_output.h"
 
 void CNN_MNIST_TOP(
-    data_f *input,
-    data_f *weight1,
-    data_f *bias1,
-    data_f *weight2,
-    data_f *bias2,
-    data_f *weight3,
-    data_f *bias3,
-    data_f *output
+    data_f *input,      //1x28x28
+    data_f *weight1,    //8x3x3
+    data_f *bias1,      //8
+    data_f *weight2,    //16x8x3x3
+    data_f *bias2,      //16
+    data_f *weight3,    //10x400
+    data_f *bias3,      //10
+    data_f *output      //10
 )
 {
 
 #pragma HLS INTERFACE m_axi port=input offset=slave bundle=gmem0 depth=784 max_read_burst_length=256
 #pragma HLS INTERFACE m_axi port=weight1 offset=slave bundle=gmem1 depth=72 max_read_burst_length=256
-#pragma HLS INTERFACE m_axi port=bias1 offset=slave bundle=gmem2 depth=8 max_read_burst_length=256
-#pragma HLS INTERFACE m_axi port=weight2 offset=slave bundle=gmem3 depth=1152 max_read_burst_length=256
-#pragma HLS INTERFACE m_axi port=bias2 offset=slave bundle=gmem4 depth=16 max_read_burst_length=256
-#pragma HLS INTERFACE m_axi port=weight3 offset=slave bundle=gmem5 depth=4000 max_read_burst_length=256
-#pragma HLS INTERFACE m_axi port=bias3 offset=slave bundle=gmem6 depth=10 max_read_burst_length=256
-#pragma HLS INTERFACE m_axi port=output offset=slave bundle=gmem7 depth=10
+#pragma HLS INTERFACE m_axi port=bias1 offset=slave bundle=gmem1 depth=8 max_read_burst_length=256
+#pragma HLS INTERFACE m_axi port=weight2 offset=slave bundle=gmem2 depth=1152 max_read_burst_length=256
+#pragma HLS INTERFACE m_axi port=bias2 offset=slave bundle=gmem2 depth=16 max_read_burst_length=256
+#pragma HLS INTERFACE m_axi port=weight3 offset=slave bundle=gmem3 depth=4000 max_read_burst_length=256
+#pragma HLS INTERFACE m_axi port=bias3 offset=slave bundle=gmem3 depth=10 max_read_burst_length=256
+#pragma HLS INTERFACE m_axi port=output offset=slave bundle=gmem4 depth=10 max_write_burst_length=16
 
 #pragma HLS INTERFACE s_axilite port=input bundle=control
 #pragma HLS INTERFACE s_axilite port=weight1 bundle=control
@@ -37,42 +37,36 @@ void CNN_MNIST_TOP(
 #pragma HLS INTERFACE s_axilite port=output bundle=control
 #pragma HLS INTERFACE s_axilite port=return bundle=control
 
-    data_f input_buffer[28][28];
-    data_f output_buffer[10];
-    data_f W1[8][3][3];
-    data_f W2[16][8][3][3];
-    data_f W3[10][400];
-    data_f B1[8];
-    data_f B2[16];
-    data_f B3[10];
+    hls::stream<data_f> s_input;
+    hls::stream<data_f> s_w1, s_b1;
+    hls::stream<data_f> s_w2, s_b2;
+    hls::stream<data_f> s_w3, s_b3;
 
-//#pragma HLS ARRAY_PARTITION variable=input_buffer dim=1 type=cyclic factor=28
-#pragma HLS ARRAY_PARTITION variable=output_buffer dim=0 type=complete
+#pragma HLS STREAM variable=s_input depth=1024
+#pragma HLS STREAM variable=s_w1 depth=128
+#pragma HLS STREAM variable=s_w2 depth=2048
+#pragma HLS STREAM variable=s_w3 depth=4096
 
-#pragma HLS BIND_STORAGE variable=input_buffer type=ram_2p impl=bram
-#pragma HLS BIND_STORAGE variable=output_buffer type=ram_2p impl=bram
-
-    load_input(input, input_buffer, weight1, W1, weight2, W2, weight3, W3, bias1, B1, bias2, B2, bias3, B3);
-
-#pragma HLS DATAFLOW
-
-    hls::stream<vec8_f> s_conv1("s_conv1");
-    hls::stream<vec8_f> s_pool1("s_pool1");
+    hls::stream<vec8_f>  s_conv1("s_conv1");
+    hls::stream<vec8_f>  s_pool1("s_pool1");
     hls::stream<vec16_f> s_conv2("s_conv2");
     hls::stream<vec16_f> s_pool2("s_pool2");
+    hls::stream<data_f> s_out("s_out");
 
 #pragma HLS STREAM variable=s_conv1 depth=128
 #pragma HLS STREAM variable=s_pool1 depth=128
 #pragma HLS STREAM variable=s_conv2 depth=128
 #pragma HLS STREAM variable=s_pool2 depth=128
+#pragma HLS STREAM variable=s_out depth=128
 
-    conv1(input_buffer, W1, B1, s_conv1);
+#pragma HLS DATAFLOW
+
+    load_input( input, weight1, bias1, weight2, bias2, weight3, bias3, 
+                s_input, s_w1, s_b1, s_w2, s_b2, s_w3, s_b3 );
+    conv1(s_input, s_w1, s_b1, s_conv1);
     pool1(s_conv1, s_pool1);
-    conv2(s_pool1, W2, B2, s_conv2);
+    conv2(s_pool1, s_w2, s_b2, s_conv2);
     pool2(s_conv2, s_pool2);
-    dense3(s_pool2, W3, B3, output_buffer);
-
-    // Outside Dataflow
-    store_output(output_buffer, output);
-
+    dense3(s_pool2, s_w3, s_b3, s_out);
+    store_output(s_out, output);
 }
