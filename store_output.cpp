@@ -1,15 +1,15 @@
 #include "data_types.h"
 
 void store_output(
-    data_f output_buffer[10],
+    hls::stream<data_f> &s_out,
     data_f *output
 )
 {
-#pragma HLS INLINE
+#pragma HLS INLINE off
 
     for (int i = 0; i < 10; i++) {
 #pragma HLS UNROLL
-        output[i] = output_buffer[i];
+        output[i] = s_out.read();
     }
 
 }
