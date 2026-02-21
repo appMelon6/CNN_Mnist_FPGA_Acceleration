@@ -16,14 +16,18 @@ void pool1(
 #pragma HLS DEPENDENCE variable=prev_row_buffer inter false
 #pragma HLS DEPENDENCE variable=prev_pixel inter false
 
+    Max_pooling:
     for (int r = 0; r < 26; r++) {
         for (int c = 0; c < 26; c++) {
+#pragma HLS PIPELINE II=1
             vec8_f in_pixel = input.read();
             vec8_f out_pix;
 #pragma HLS ARRAY_PARTITION variable=in_pixel.ch dim=0 type=complete
 #pragma HLS ARRAY_PARTITION variable=out_pix.ch dim=0 type=complete
+
+            Looping_output_channels:
             for (int oc = 0; oc < 8; oc++) {
-#pragma HLS PIPELINE II=1
+#pragma HLS UNROLL
 
                 if ((r & 1) == 0) {
                     prev_row_buffer[oc][c] = in_pixel.ch[oc];
@@ -47,7 +51,8 @@ void pool1(
                 }
             }
             
-            if((r&c&1) == 1) {
+
+            if(r % 2 == 1 && c % 2 == 1) {
                 output.write(out_pix);
             }
         }
