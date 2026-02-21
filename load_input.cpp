@@ -2,76 +2,63 @@
 
 void load_input(
     data_f *input,
-    data_f input_buffer[28][28],
     data_f *weight1,
-    data_f W1[8][3][3],
-    data_f *weight2,
-    data_f W2[16][8][3][3],
-    data_f *weight3,
-    data_f W3[10][400],
     data_f *bias1,
-    data_f B1[8],
+    data_f *weight2,
     data_f *bias2,
-    data_f B2[16],
+    data_f *weight3,
     data_f *bias3,
-    data_f B3[10]
+
+    hls::stream<data_f> &s_input,
+    hls::stream<data_f> &s_w1,
+    hls::stream<data_f> &s_b1,
+    hls::stream<data_f> &s_w2,
+    hls::stream<data_f> &s_b2,
+    hls::stream<data_f> &s_w3,
+    hls::stream<data_f> &s_b3
 )
 {
 #pragma HLS INLINE off
 
-    for (int r = 0; r < 28; r++) {
-        for (int c = 0; c < 28; c++) {
-#pragma HLS PIPELINE
-            input_buffer[r][c] = input[r*28 + c];
-        }
+    Stream_input:
+    for (int i = 0; i < 784; i++) {
+#pragma HLS PIPELINE II=1
+        s_input.write(input[i]);
     }
 
-    // Conv1 weights
-    for (int oc = 0; oc < 8; oc++) {
-        for (int i = 0; i < 3; i++) {
-            for (int j = 0; j < 3; j++) {
-#pragma HLS PIPELINE
-                W1[oc][i][j] = weight1[oc*9 + i*3 + j];
-            }
-        }
+    Stream_weight1:
+    for (int i = 0; i < 72; i++) {
+#pragma HLS PIPELINE II=1
+        s_w1.write(weight1[i]);
     }
 
-    // Conv1 Biases
-    for (int oc = 0; oc < 8; oc++) {
-#pragma HLS PIPELINE
-        B1[oc] = bias1[oc];
+    Stream_bias1:
+    for (int i = 0; i < 8; i++) {
+#pragma HLS PIPELINE II=1
+        s_b1.write(bias1[i]);
     }
 
-    // Conv2 weights
-    for (int ic = 0; ic < 8; ic++) {
-        for (int oc = 0; oc < 16; oc++) {
-            for (int i = 0; i < 3; i++) {
-                for (int j = 0; j < 3; j++) {
-#pragma HLS PIPELINE
-                    W2[oc][ic][i][j] = weight2[oc*72 + ic*9 + i*3 + j];
-                }
-            }
-        }
+    Stream_weight2:
+    for (int i = 0; i < 1152; i++) {
+#pragma HLS PIPELINE II=1
+        s_w2.write(weight2[i]);
     }
 
-    // Conv2 Biases
-    for (int oc = 0; oc < 16; oc++) {
-#pragma HLS PIPELINE
-        B2[oc] = bias2[oc];
+    Stream_bias2:
+    for (int i = 0; i < 16; i++) {
+#pragma HLS PIPELINE II=1
+        s_b2.write(bias2[i]);
     }
 
-    // Dense3 Weights
-    for (int oc = 0; oc < 10; oc++) {
-        for (int ic = 0; ic < 400; ic++) {
-#pragma HLS PIPELINE
-            W3[oc][ic] = weight3[oc*400 + ic];
-        }
+    Stream_weight3:
+    for (int i = 0; i < 4000; i++) {
+#pragma HLS PIPELINE II=1
+        s_w3.write(weight3[i]);
     }
 
-    // Dense3 Biases
-    for (int oc = 0; oc < 10; oc++) {
-#pragma HLS PIPELINE
-        B3[oc] = bias3[oc];
+    Stream_bias3:
+    for (int i = 0; i < 10; i++) {
+#pragma HLS PIPELINE II=1
+        s_b3.write(bias3[i]);
     }
-
 }
